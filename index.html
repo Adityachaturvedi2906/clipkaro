@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipKaro – Free Auto Subtitle Reel Clipper | Split Long Videos into Captioned Reels</title>
+<meta name="description" content="Free online reel clipper: upload a long video and ClipKaro splits the whole thing into short clips with auto-generated subtitles on every reel. Hindi, English and 90+ languages. Runs in your browser, no upload.">
+<meta name="keywords" content="reel clipper, auto subtitles, video to reels, add captions to video free, split video into clips, auto caption generator, hindi subtitles, shorts maker">
+<link rel="canonical" href="https://adityachaturvedi2906.github.io/clipkaro/">
+<meta property="og:title" content="ClipKaro – Turn any long video into captioned reels">
+<meta property="og:description" content="Split a full video into short clips with auto subtitles. Free, private, in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23ff3d6e%22/%3E%3Cpath d=%22M38 28l36 22-36 22z%22 fill=%22white%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700;800;900&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"WebApplication","name":"ClipKaro – Auto Subtitle Reel Clipper","url":"https://adityachaturvedi2906.github.io/clipkaro/","applicationCategory":"MultimediaApplication","operatingSystem":"Any (Chrome or Edge recommended)","offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},"description":"Split long videos into short captioned reels automatically, in your browser."},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Is ClipKaro free?","acceptedAnswer":{"@type":"Answer","text":"Yes. ClipKaro is free and runs entirely in your browser."}},
+{"@type":"Question","name":"Which languages are supported for subtitles?","acceptedAnswer":{"@type":"Answer","text":"Language is detected automatically. Hindi, English and 90+ other languages are supported."}},
+{"@type":"Question","name":"Is my video uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. Transcription and clipping happen on your device. Your video never leaves your computer."}}]}]}
+</script>
+<style>
+:root{--bg:#0c0c12;--card:#15151e;--ink:#f1f1f6;--muted:#a3a3b5;--line:#2a2a38;--brand:#ff3d6e;--brand2:#ff8a3d;--good:#22c55e;--soft:#1e1b2b}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f7f6fb;--card:#fff;--ink:#16161d;--muted:#5f5f70;--line:#e5e4ee;--soft:#fff1f4}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Poppins,system-ui,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+.logo{font-weight:900;font-size:22px}.logo span{color:var(--brand)}
+.muted{color:var(--muted)}.small{font-size:13px}
+.hero{text-align:center;padding:18px 0 6px}
+.hero h1{font-size:clamp(28px,5.5vw,46px);line-height:1.12;margin:0 0 10px;font-weight:900}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{max-width:600px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:18px 0}
+.drop{border:2px dashed var(--brand);border-radius:16px;background:var(--soft);padding:38px 16px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{transform:scale(1.01);border-style:solid}
+.drop .ic{font-size:44px}.drop b{display:block;font-size:20px;margin:6px 0 2px}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+video.pv{width:100%;max-height:360px;background:#000;border-radius:12px}
+.opt{margin-bottom:12px}.opt label{font-weight:700;font-size:14px;display:block;margin-bottom:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:7px 12px;border-radius:10px;font:600 14px Poppins,sans-serif;cursor:pointer}
+.seg button.on{border-color:var(--brand);background:var(--brand);color:#fff}
+.btn{display:inline-block;border:0;border-radius:12px;padding:13px 24px;font:700 16px Poppins,sans-serif;cursor:pointer;background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.sm{padding:8px 14px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.full{width:100%}.center{text-align:center}.hidden{display:none!important}
+.bar{height:10px;background:var(--line);border-radius:99px;overflow:hidden;margin:12px 0}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .3s}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.clip{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.clip h4{margin:0;display:flex;justify-content:space-between;font-size:15px}
+.clip video{width:100%;border-radius:10px;background:#000;max-height:340px}
+.thumb{width:100%;border-radius:10px;background:#000;display:block}
+.caps{max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.caps input{width:100%;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:5px 8px;font:13px Poppins,sans-serif}
+.caps .t{font-size:11px;color:var(--muted)}
+.status{font-size:13px;color:var(--muted)}
+.ok{color:var(--good);font-weight:700}
+.warn{background:#ff8a3d22;border:1px solid #ff8a3d66;border-radius:12px;padding:10px 14px;font-size:14px}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}@media(max-width:640px){.how{grid-template-columns:1fr}}
+.how div{background:var(--bg);border-radius:14px;padding:14px}.how b{display:block;font-size:22px;color:var(--brand)}
+.faq details{border-bottom:1px solid var(--line);padding:10px 0}.faq summary{font-weight:700;cursor:pointer}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="logo">Clip<span>Karo</span></div><div class="small muted">🔒 Runs in your browser · Free</div></header>
+
+<section class="hero">
+  <h1>Turn any long video into<br><em>captioned reels, automatically</em></h1>
+  <p class="muted">Upload a video. ClipKaro writes the subtitles, splits the whole video into back-to-back reels, and burns captions into every clip.</p>
+</section>
+
+<section class="card" id="step1">
+  <div class="drop" id="drop" tabindex="0">
+    <div class="ic">🎬</div><b>Upload your video</b>
+    <div class="small muted">MP4, MOV or WebM · drag &amp; drop or tap to choose</div>
+    <input type="file" id="file" accept="video/*" hidden>
+  </div>
+  <p class="small muted center" style="margin:10px 0 0">Best in Chrome or Edge on a laptop. Up to 30–40 minutes per video works well.</p>
+</section>
+
+<section class="card hidden" id="step2">
+  <div class="grid">
+    <div><video class="pv" id="pv" controls playsinline></video><div class="small muted" id="meta"></div></div>
+    <div>
+      <div class="opt"><label>Clip length</label><div class="seg" data-k="len"><button data-v="15">15s</button><button data-v="30" class="on">30s</button><button data-v="45">45s</button><button data-v="60">60s</button><button data-v="90">90s</button></div>
+        <div class="small muted" style="margin-top:4px">Cuts at the end of a sentence near this length, covering the full video.</div></div>
+      <div class="opt"><label>Format</label><div class="seg" data-k="fmt"><button data-v="fit" class="on">9:16 Reel (fit)</button><button data-v="crop">9:16 (crop)</button><button data-v="orig">Original</button></div></div>
+      <div class="opt"><label>Caption style</label><div class="seg" data-k="style"><button data-v="highlight" class="on">Highlight word</button><button data-v="classic">Bold white</button><button data-v="box">Boxed</button><button data-v="none">No captions</button></div></div>
+      <div class="opt"><label>Caption position</label><div class="seg" data-k="pos"><button data-v="low" class="on">Lower</button><button data-v="mid">Middle</button><button data-v="bottom">Bottom</button></div></div>
+      <div class="opt"><label>Subtitle accuracy</label><div class="seg" data-k="model"><button data-v="Xenova/whisper-tiny">Fast</button><button data-v="Xenova/whisper-base" class="on">Balanced</button><button data-v="Xenova/whisper-small">Best (slow)</button></div>
+        <div class="small muted" style="margin-top:4px">Language is detected automatically. The AI model downloads once (40–250 MB) and is cached.</div></div>
+      <button class="btn full" id="start">✂️ Make captioned clips</button>
+      <div class="center" style="margin-top:8px"><button class="btn ghost sm" id="reset">Choose another video</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="card hidden" id="work">
+  <h3 style="margin:0" id="workTitle">Working…</h3>
+  <div class="bar"><i id="wbar"></i></div>
+  <div class="status" id="wstat"></div>
+</section>
+
+<section class="hidden" id="step3">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div><h2 style="margin:0" id="sumTitle"></h2><div class="small muted">Fix any caption text below, then export. Keep this tab open while exporting.</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="exportAll">⬇️ Export all clips</button><button class="btn ghost" id="zipAll" disabled>Download all (.zip)</button><button class="btn ghost" id="srtAll">Subtitles (.srt)</button></div>
+    </div>
+    <div class="warn hidden" id="exWarn" style="margin-top:12px"></div>
+    <div class="bar hidden" id="ebarWrap"><i id="ebar"></i></div>
+    <div class="status" id="estat"></div>
+  </div>
+  <div class="clips" id="clips"></div>
+  <div class="center" style="margin:18px 0"><button class="btn ghost" id="again">↺ Clip another video</button></div>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">How the auto subtitle reel clipper works</h2>
+  <div class="how">
+    <div><b>1</b>Upload a podcast, lecture, vlog or interview. It stays on your device.</div>
+    <div><b>2</b>AI transcribes it in your browser and splits the whole video into short clips at sentence breaks.</div>
+    <div><b>3</b>Every clip gets bold, reel-style subtitles. Download each one or all of them as a zip.</div>
+  </div>
+</section>
+<section class="card faq">
+  <h2 style="margin-top:0">FAQ</h2>
+  <details><summary>Is ClipKaro free?</summary><p>Yes. It runs entirely in your browser, so there are no server costs.</p></details>
+  <details><summary>Which languages work?</summary><p>Language is detected automatically: Hindi, English and 90+ others. Hinglish is transcribed on a best-effort basis, and you can edit any caption before exporting.</p></details>
+  <details><summary>Is my video uploaded?</summary><p>No. Transcription and video rendering happen on your device.</p></details>
+  <details><summary>Why does exporting take as long as the video?</summary><p>Clips are rendered in real time in your browser for best compatibility. A 10-minute video takes about 10 minutes to export. Keep the tab open and visible.</p></details>
+  <details><summary>What format are the clips?</summary><p>MP4 in recent Chrome and Edge, otherwise WebM. Both upload fine to Instagram, YouTube Shorts and Facebook.</p></details>
+</section>
+<footer>© <span id="yr"></span> ClipKaro · Free Auto Subtitle Reel Clipper · Made in India</footer>
+</div>
+
+<video id="rv" playsinline preload="auto" style="position:fixed;left:-9999px;width:2px;height:2px"></video>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+$('yr').textContent = new Date().getFullYear();
+const opts = {len:30, fmt:"fit", style:"highlight", pos:"low", model:"Xenova/whisper-base"};
+document.querySelectorAll('.seg').forEach(g => g.onclick = e => {
+  const b = e.target.closest('button'); if(!b) return;
+  g.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  const k = g.dataset.k; opts[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v;
+  if (S.clips && (k==="len")) { S.clips = splitClips(); renderClipList(); }
+});
+const fmtT = s => { s=Math.max(0,s); const m=Math.floor(s/60), ss=Math.floor(s%60); return m+":"+String(ss).padStart(2,"0"); };
+const srtT = s => { const h=Math.floor(s/3600), m=Math.floor(s%3600/60), ss=Math.floor(s%60), ms=Math.round((s%1)*1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")},${String(ms).padStart(3,"0")}`; };
+
+let S = {};
+
+/* ---------- step 1: file ---------- */
+$('drop').onclick = () => $('file').click();
+$('drop').onkeydown = e => { if(e.key==="Enter"||e.key===" ") $('file').click(); };
+["dragenter","dragover"].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over');}));
+["dragleave","drop"].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop', e => { const f=e.dataTransfer.files[0]; if(f) loadFile(f); });
+$('file').onchange = e => { const f=e.target.files[0]; if(f) loadFile(f); };
+
+function loadFile(f){
+  if (!f.type.startsWith("video/") && !/\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name)) { alert("Please choose a video file."); return; }
+  if (S.url) URL.revokeObjectURL(S.url);
+  S = {file:f, url:URL.createObjectURL(f), base:f.name.replace(/\.[^.]+$/,"").replace(/[^\w-]+/g,"_").slice(0,40)||"clip"};
+  const pv = $('pv'); pv.src = S.url;
+  pv.onloadedmetadata = () => {
+    S.dur = pv.duration; S.vw = pv.videoWidth; S.vh = pv.videoHeight;
+    $('meta').textContent = `${f.name} · ${fmtT(S.dur)} · ${S.vw}×${S.vh}`;
+    if (S.dur > 45*60) $('meta').textContent += " · Long video: transcription may take a while.";
+  };
+  $('rv').src = S.url;
+  $('step1').classList.add('hidden'); $('step2').classList.remove('hidden'); $('step3').classList.add('hidden');
+}
+$('reset').onclick = $('again').onclick = () => { $('step2').classList.add('hidden'); $('step3').classList.add('hidden'); $('work').classList.add('hidden'); $('step1').classList.remove('hidden'); $('file').value=""; };
+
+/* ---------- transcription (Whisper in a web worker) ---------- */
+const WORKER_SRC = `
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2/dist/transformers.min.js';
+env.allowLocalModels = false;
+let asr = null, cur = null;
+self.onmessage = async (e) => {
+  try {
+    const { audio, model } = e.data;
+    if (!asr || cur !== model) {
+      asr = await pipeline('automatic-speech-recognition', model, { dtype: 'q8', device: 'wasm',
+        progress_callback: p => self.postMessage({ type: 'dl', p }) });
+      cur = model;
+    }
+    self.postMessage({ type: 'ready' });
+    const SR = 16000, BLOCK = SR * 180, out = [];
+    for (let off = 0; off < audio.length; off += BLOCK) {
+      const part = audio.subarray(off, Math.min(audio.length, off + BLOCK));
+      const r = await asr(part, { chunk_length_s: 30, stride_length_s: 5, return_timestamps: true, task: 'transcribe' });
+      const base = off / SR, plen = part.length / SR;
+      (r.chunks || []).forEach(c => {
+        const s = c.timestamp[0] ?? 0, en = c.timestamp[1] ?? Math.min(plen, s + 4);
+        const t = (c.text || '').trim();
+        if (t) out.push({ start: base + s, end: base + Math.max(en, s + 0.3), text: t });
+      });
+      self.postMessage({ type: 'prog', done: Math.min(audio.length, off + BLOCK) / audio.length, n: out.length });
+    }
+    self.postMessage({ type: 'done', segments: out });
+  } catch (err) { self.postMessage({ type: 'error', message: String(err && err.message || err) }); }
+};`;
+let worker = null;
+function getWorker(){ if(!worker) worker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:"text/javascript"})), {type:"module"}); return worker; }
+
+async function decodeAudio(file){
+  const ab = await file.arrayBuffer();
+  const ctx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+  try {
+    const buf = await ctx.decodeAudioData(ab);
+    const n = buf.length, out = new Float32Array(n);
+    for (let c=0;c<buf.numberOfChannels;c++){ const d=buf.getChannelData(c); for(let i=0;i<n;i++) out[i]+=d[i]/buf.numberOfChannels; }
+    return out;
+  } finally { ctx.close(); }
+}
+function transcribe(audio, model){
+  return new Promise((resolve,reject)=>{
+    const w = getWorker(), files = {};
+    w.onmessage = e => {
+      const m = e.data;
+      if (m.type==="dl" && m.p.status==="progress" && m.p.total){ files[m.p.file]=[m.p.loaded,m.p.total];
+        const L=Object.values(files).reduce((a,b)=>a+b[0],0), T=Object.values(files).reduce((a,b)=>a+b[1],0);
+        work("Downloading AI model (first time only)…", L/T*100, `${(L/1e6).toFixed(0)} / ${(T/1e6).toFixed(0)} MB`); }
+      if (m.type==="ready") work("Writing subtitles…", 2, "Listening to your video. This takes a few minutes for long videos.");
+      if (m.type==="prog") work("Writing subtitles…", Math.max(2,m.done*100), `${Math.round(m.done*100)}% · ${fmtT(m.done*S.dur)} of ${fmtT(S.dur)} transcribed`);
+      if (m.type==="done") resolve(m.segments);
+      if (m.type==="error") reject(new Error(m.message));
+    };
+    w.postMessage({audio, model}, [audio.buffer]);
+  });
+}
+function work(title, pct, stat){ $('workTitle').textContent=title; $('wbar').style.width=(pct||0)+"%"; $('wstat').textContent=stat||""; }
+
+$('start').onclick = async () => {
+  if (!S.dur) { alert("Video is still loading, try again in a second."); return; }
+  $('step2').classList.add('hidden'); $('work').classList.remove('hidden');
+  S.segments = [];
+  if (opts.style !== "none") {
+    try {
+      work("Reading audio…", 1, "Extracting the soundtrack from your video");
+      const audio = await decodeAudio(S.file);
+      S.segments = await transcribe(audio, opts.model);
+    } catch (e) {
+      console.error(e);
+      if (!confirm("Couldn't create subtitles (" + (e.message||"no audio found") + ").\n\nSplit the video into clips without captions?")) { $('work').classList.add('hidden'); $('step2').classList.remove('hidden'); return; }
+    }
+  }
+  S.captions = buildCaptions(S.segments);
+  S.clips = splitClips();
+  $('work').classList.add('hidden'); $('step3').classList.remove('hidden');
+  renderClipList(); $('step3').scrollIntoView({behavior:"smooth"});
+};
+
+/* ---------- captions + splitting ---------- */
+function buildCaptions(segs){
+  const caps = [];
+  segs.forEach(sg => {
+    const words = sg.text.replace(/\s+/g," ").trim().split(" ").filter(Boolean); if(!words.length) return;
+    const total = words.reduce((a,w)=>a+w.length+1,0), dur = sg.end - sg.start; let t = sg.start;
+    const timed = words.map(w => { const d = dur*(w.length+1)/total; const o={w, s:t, e:t+d}; t+=d; return o; });
+    let cur = [];
+    timed.forEach((w,i) => {
+      cur.push(w);
+      const len = cur.reduce((a,x)=>a+x.w.length,0);
+      if (cur.length>=4 || len>18 || /[.,!?।;:]$/.test(w.w) || i===timed.length-1) { caps.push({start:cur[0].s, end:cur[cur.length-1].e, words:cur}); cur=[]; }
+    });
+  });
+  for (let i=0;i<caps.length-1;i++) if (caps[i+1].start - caps[i].end < 0.4) caps[i].end = caps[i+1].start;  // no flicker between captions
+  return caps;
+}
+function splitClips(){
+  const L = opts.len, D = S.dur, ends = S.segments.map(s => ({t:s.end, p:/[.!?।]$/.test(s.text)}));
+  const clips = []; let st = 0;
+  while (D - st > 0.5) {
+    if (D - st <= L*1.35) { clips.push({s:st, e:D}); break; }
+    const target = st + L;
+    const c = ends.filter(x => x.t > st + 0.7*L && x.t < st + 1.3*L);
+    let cut = target;
+    if (c.length) cut = c.reduce((best,x) => (Math.abs(x.t-target) - (x.p?0.2*L:0)) < (Math.abs(best.t-target) - (best.p?0.2*L:0)) ? x : best).t;
+    clips.push({s:st, e:cut}); st = cut;
+  }
+  const last = clips[clips.length-1];
+  if (clips.length > 1 && last.e - last.s < 0.4*L) { clips.pop(); clips[clips.length-1].e = last.e; }
+  return clips;
+}
+const capsIn = (c) => S.captions.filter(x => x.end > c.s && x.start < c.e);
+
+function renderClipList(){
+  const n = S.clips.length;
+  $('sumTitle').textContent = `${n} clip${n>1?"s":""} ready · ${fmtT(S.dur)} total`;
+  $('zipAll').disabled = true; $('estat').textContent = "";
+  $('clips').innerHTML = S.clips.map((c,i) => {
+    const caps = capsIn(c);
+    return `<div class="clip" id="clip${i}"><h4><span>Clip ${i+1}</span><span class="muted">${fmtT(c.s)}–${fmtT(c.e)} · ${Math.round(c.e-c.s)}s</span></h4>
+      <canvas class="thumb" id="th${i}"></canvas>
+      ${opts.style!=="none" && caps.length ? `<div class="caps">${caps.map(cp=>`<div><span class="t">${fmtT(cp.start)}</span><input data-ci="${S.captions.indexOf(cp)}" value="${cp.words.map(w=>w.w).join(" ").replace(/"/g,"&quot;")}"></div>`).join("")}</div>` : `<div class="small muted">${opts.style==="none"?"Captions off":"No speech detected in this part"}</div>`}
+      <div class="status" id="cs${i}"></div>
+      <button class="btn ghost sm" data-ex="${i}">Export this clip</button></div>`;
+  }).join("");
+  document.querySelectorAll('.caps input').forEach(inp => inp.onchange = () => editCaption(+inp.dataset.ci, inp.value));
+  document.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => exportClips([+b.dataset.ex]));
+  drawThumbs();
+}
+function editCaption(i, text){
+  const c = S.captions[i], words = text.trim().split(/\s+/).filter(Boolean); if(!words.length){ c.words=[]; return; }
+  const total = words.reduce((a,w)=>a+w.length+1,0), dur=c.end-c.start; let t=c.start;
+  c.words = words.map(w => { const d=dur*(w.length+1)/total, o={w,s:t,e:t+d}; t+=d; return o; });
+}
+async function drawThumbs(){
+  const v = $('rv');
+  for (let i=0;i<S.clips.length;i++){
+    const c = S.clips[i], cv = $('th'+i); if(!cv) continue;
+    const [W,H] = outSize(true); cv.width=W; cv.height=H;
+    await seek(v, Math.min(S.dur-0.05, c.s + Math.min(1.5,(c.e-c.s)/2)));
+    const cap = capsIn(c)[0];
+    drawFrame(cv.getContext('2d'), v, W, H, cap ? cap.start + 0.01 : -1, cap);
+  }
+}
+function seek(v,t){ return new Promise(r => { if (Math.abs(v.currentTime-t)<0.01 && v.readyState>=2) return r(); v.onseeked = () => r(); v.currentTime = t; }); }
+
+/* ---------- rendering ---------- */
+function outSize(thumb){
+  let W, H;
+  if (opts.fmt==="orig"){ const sc = Math.min(1, 1920/Math.max(S.vw,S.vh)); W=Math.round(S.vw*sc/2)*2; H=Math.round(S.vh*sc/2)*2; }
+  else { W=1080; H=1920; }
+  if (thumb){ const k = 360/Math.max(W,H); W=Math.round(W*k); H=Math.round(H*k); }
+  return [W,H];
+}
+const bgC = document.createElement('canvas'); bgC.width=36; bgC.height=64;
+function drawFrame(ctx, v, W, H, t, forcedCap){
+  const vw=v.videoWidth||16, vh=v.videoHeight||9;
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H);
+  if (opts.fmt==="orig") ctx.drawImage(v,0,0,W,H);
+  else if (opts.fmt==="crop"){ const k=Math.max(W/vw,H/vh); ctx.drawImage(v,(W-vw*k)/2,(H-vh*k)/2,vw*k,vh*k); }
+  else {
+    const b=bgC.getContext('2d'), kb=Math.max(36/vw,64/vh); b.drawImage(v,(36-vw*kb)/2,(64-vh*kb)/2,vw*kb,vh*kb);
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high"; ctx.drawImage(bgC,0,0,W,H);
+    ctx.fillStyle="rgba(0,0,0,.45)"; ctx.fillRect(0,0,W,H);
+    const k=Math.min(W/vw,H/vh); ctx.drawImage(v,(W-vw*k)/2,(H-vh*k)/2,vw*k,vh*k);
+  }
+  if (opts.style==="none") return;
+  const cap = forcedCap || S.captions.find(c => t>=c.start && t<c.end);
+  if (cap && cap.words.length) drawCaption(ctx, cap, t, W, H);
+}
+function drawCaption(ctx, cap, t, W, H){
+  const vertical = H > W, fs = Math.round(vertical ? W*0.085 : H*0.075);
+  const pop = Math.min(1, (t-cap.start)/0.12), scale = 0.86 + 0.14*pop;
+  ctx.save();
+  const y0 = H * (opts.pos==="mid" ? 0.5 : opts.pos==="bottom" ? 0.86 : (vertical ? 0.72 : 0.8));
+  ctx.translate(W/2, y0); ctx.scale(scale, scale);
+  ctx.font = `900 ${fs}px Poppins, "Noto Sans Devanagari", Arial, sans-serif`;
+  ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+  const latin = /^[\x00-\x7F’'"“”–—…]+$/.test(cap.words.map(w=>w.w).join(""));
+  const words = cap.words.map(w => ({...w, d: latin ? w.w.toUpperCase() : w.w}));
+  const space = ctx.measureText(" ").width, maxW = W*0.86, lines=[[]]; let lw=0;
+  words.forEach(w => { w.m = ctx.measureText(w.d).width; if (lw + w.m > maxW && lines[lines.length-1].length){ lines.push([]); lw=0; } lines[lines.length-1].push(w); lw += w.m + space; });
+  const lh = fs*1.22, top = -(lines.length-1)*lh/2;
+  lines.forEach((ln,li) => {
+    const total = ln.reduce((a,w)=>a+w.m,0) + space*(ln.length-1); let x = -total/2; const y = top + li*lh;
+    if (opts.style==="box"){ ctx.fillStyle="rgba(0,0,0,.72)"; const p=fs*0.28; roundRect(ctx, x-p, y-lh/2, total+2*p, lh, fs*0.25); ctx.fill(); }
+    ln.forEach(w => {
+      const active = t>=w.s && t<w.e;
+      if (opts.style!=="box"){ ctx.strokeStyle="#000"; ctx.lineWidth=fs*0.2; ctx.strokeText(w.d, x, y); }
+      ctx.fillStyle = (opts.style==="highlight" && active) ? "#FFE11A" : "#fff";
+      ctx.fillText(w.d, x, y); ctx.textAlign="left"; x += w.m + space;
+    });
+  });
+  ctx.restore();
+}
+function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+
+const MIMES = ['video/mp4;codecs=avc1.42E01F,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+const pickMime = () => MIMES.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+let AC=null, srcNode=null, dest=null;
+function audioGraph(v){
+  if (!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); srcNode = AC.createMediaElementSource(v); dest = AC.createMediaStreamDestination(); srcNode.connect(dest); }
+  return AC.resume();
+}
+async function renderClip(i, onProg){
+  const c = S.clips[i], v = $('rv'), [W,H] = outSize(false);
+  const cv = document.createElement('canvas'); cv.width=W; cv.height=H; const ctx = cv.getContext('2d');
+  await audioGraph(v); v.muted=false; v.volume=1; v.playbackRate=1;
+  await seek(v, c.s); drawFrame(ctx, v, W, H, c.s);
+  const mime = pickMime(); if (!mime) throw new Error("Your browser can't record video. Please use Chrome or Edge.");
+  const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+  const rec = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 160_000});
+  const chunks = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const done = new Promise(r => rec.onstop = () => r(new Blob(chunks, {type: mime.split(";")[0]})));
+  rec.start(500);
+  await v.play();
+  await new Promise(res => {
+    const tick = () => {
+      const t = v.currentTime; drawFrame(ctx, v, W, H, t); onProg((t-c.s)/(c.e-c.s), t-c.s, c.e-c.s);
+      if (t >= c.e || v.ended) { v.pause(); res(); } else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  rec.stop(); stream.getTracks().filter(tr=>tr.kind==="video").forEach(tr=>tr.stop());
+  return done;
+}
+let exporting = false;
+async function exportClips(list){
+  if (exporting) return; exporting = true;
+  const mime = pickMime() || "";
+  $('exWarn').classList.remove('hidden');
+  $('exWarn').textContent = `⏳ Rendering in real time (about ${fmtT(list.reduce((a,i)=>a+S.clips[i].e-S.clips[i].s,0))}). Keep this tab open and visible, since switching tabs pauses rendering. Output: ${mime.includes("mp4")?"MP4":"WebM"}.`;
+  $('ebarWrap').classList.remove('hidden'); $('exportAll').disabled = true;
+  try {
+    for (let k=0;k<list.length;k++){
+      const i = list[k]; $('cs'+i).textContent = "Rendering…";
+      const blob = await renderClip(i, (p,a,b) => { $('ebar').style.width = ((k+Math.min(1,p))/list.length*100)+"%"; $('estat').textContent = `Clip ${i+1} (${k+1} of ${list.length}) · ${fmtT(a)} / ${fmtT(b)}`; });
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm", name = `${S.base}_part${String(i+1).padStart(2,"0")}.${ext}`;
+      S.clips[i].blob = blob; S.clips[i].name = name;
+      const url = URL.createObjectURL(blob), box = $('clip'+i);
+      const th = $('th'+i); if (th) th.outerHTML = `<video src="${url}" controls playsinline></video>`;
+      $('cs'+i).innerHTML = `<span class="ok">✓ Ready</span> · ${(blob.size/1e6).toFixed(1)} MB · <a href="${url}" download="${name}" style="color:var(--brand);font-weight:700">Download</a>`;
+      box.querySelector('[data-ex]').classList.add('hidden');
+    }
+    $('estat').innerHTML = `<span class="ok">✓ Done!</span> Download clips one by one above, or all at once as a zip.`;
+    $('exWarn').classList.add('hidden');
+  } catch(e){ console.error(e); $('estat').textContent = "Export failed: " + e.message; }
+  exporting = false; $('exportAll').disabled = false;
+  $('zipAll').disabled = !S.clips.some(c=>c.blob);
+}
+$('exportAll').onclick = () => exportClips(S.clips.map((c,i)=>i).filter(i=>!S.clips[i].blob));
+$('zipAll').onclick = async () => {
+  const zip = new JSZip(); S.clips.forEach(c => c.blob && zip.file(c.name, c.blob));
+  zip.file(`${S.base}_subtitles.srt`, makeSrt());
+  $('zipAll').textContent = "Zipping…";
+  const out = await zip.generateAsync({type:"blob", compression:"STORE"});
+  dl(out, `${S.base}_clips.zip`); $('zipAll').textContent = "Download all (.zip)";
+};
+function makeSrt(){
+  let n=0; return S.captions.filter(x=>x.words.length).map(x => `${++n}\n${srtT(x.start)} --> ${srtT(x.end)}\n${x.words.map(w=>w.w).join(" ")}\n`).join("\n");
+}
+$('srtAll').onclick = () => dl(new Blob([makeSrt()||""],{type:"text/plain"}), `${S.base}_subtitles.srt`);
+function dl(blob, name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+document.fonts && document.fonts.load('900 40px Poppins');
+</script>
+</body>
+</html>
