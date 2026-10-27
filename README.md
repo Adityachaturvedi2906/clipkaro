@@ -1,10 +1,14 @@
 # ClipKaro
 
-Free auto-subtitle reel clipper. Upload a long video and ClipKaro:
+Free, in-browser auto-subtitle reel clipper. Drop in one or many long videos and ClipKaro:
 
-1. Transcribes it in the browser with Whisper (transformers.js), auto-detecting the language.
-2. Splits the **whole video** into back-to-back clips (15–90s), cutting at sentence ends.
-3. Burns reel-style captions into every clip (9:16 fit, 9:16 crop or original format).
-4. Exports MP4 (Chrome/Edge) or WebM, one by one or as a zip, plus an .srt file.
+- writes **word-synced subtitles** with Whisper (GPU via WebGPU, CPU fallback), Hindi, English and 90+ languages
+- cuts each video into back-to-back clips (15–90s) at natural pauses / sentence ends
+- burns in reel-style captions and exports **MP4 (H.264/AAC), 1080×1920**, using hardware video encoding (WebCodecs), faster than real time
+- processes a **queue of videos**, transcribing the next one while the current one exports, and saves each video's clips (plus an `.srt`) into its own folder
 
-Everything runs on the user's device, with no server and no upload. Hosted on GitHub Pages.
+Nothing is uploaded; everything runs on the user's device. Best in Chrome or Edge on desktop.
+
+Live: https://adityachaturvedi2906.github.io/clipkaro/
+
+Files: `index.html` (UI), `app.js` (pipeline), `asr-worker.js` (speech-to-text). Built on [Mediabunny](https://mediabunny.dev) and [transformers.js](https://github.com/huggingface/transformers.js).
