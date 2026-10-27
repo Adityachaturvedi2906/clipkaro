@@ -5,8 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js?v=4';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js?v=4';
+import { groqModels, groqTranscribe } from './groq.js?v=5';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js?v=5';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -290,7 +290,7 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js?v=4', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=5', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);
@@ -342,7 +342,7 @@ async function transcribe(it) {
     catch (e) { if (/invalid/i.test(e.message)) throw e; console.warn(e); setStage(it, 'Cloud subtitles failed (' + e.message + '), using on-device AI…', 0); await sleep(1500); }
   }
   await ensureModel(it);
-  const SR = 16000, TARGET = SR * 26, LOOK = SR * 3; // one Whisper window per request → steady progress
+  const SR = 16000, TARGET = SR * 60, LOOK = SR * 5; // ~1 minute per request → steady progress
   let buf = new Float32Array(0), off = 0, words = [], lead = 0, started = false;
   const t0 = performance.now();
   const runBlock = async (pcm) => {
