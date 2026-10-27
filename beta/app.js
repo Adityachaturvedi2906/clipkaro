@@ -5,8 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js';
+import { groqModels, groqTranscribe } from './groq.js?v=3';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -291,7 +291,7 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=3', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);

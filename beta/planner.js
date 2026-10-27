@@ -2,7 +2,7 @@
 // With a Groq key, an LLM reads the transcript and chooses sections (or best moments) + titles.
 // Without one, sentence boundaries are scored with pauses, discourse cues and topic shifts
 // (multilingual sentence embeddings), and dynamic programming picks the best cuts.
-import { groqJSON } from './groq.js';
+import { groqJSON } from './groq.js?v=3';
 
 const END = /[.?!।॥]["'”’)]?$/;
 const QEND = /\?["'”’)]?$/;
