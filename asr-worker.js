@@ -17,13 +17,18 @@ async function load(model) {
   const tryGpu = !!self.navigator?.gpu && !!(await self.navigator.gpu.requestAdapter().catch(() => null));
   if (tryGpu) {
     try {
+      const adapter = await self.navigator.gpu.requestAdapter();
+      const f16 = adapter?.features?.has('shader-f16');
+      const big = /large|turbo|small/.test(model);
       asr = await pipeline('automatic-speech-recognition', model, {
         device: 'webgpu',
-        dtype: { encoder_model: 'fp32', decoder_model_merged: 'q4' },
+        dtype: { encoder_model: big ? (f16 ? 'fp16' : 'q4') : 'fp32', decoder_model_merged: 'q4' },
         progress_callback,
       });
       device = 'webgpu';
+      post({ type: 'log', msg: 'loaded ' + model + ' on webgpu, f16=' + f16 });
     } catch (e) {
+      post({ type: 'log', msg: 'webgpu load failed: ' + (e?.message || e) });
       console.warn('WebGPU load failed, falling back to CPU', e);
       asr = null;
     }
@@ -63,9 +68,22 @@ function wordsFromSegments(chunks, offset, blockLen) {
   return out;
 }
 
+let embedder = null;
+async function embed(texts) {
+  if (!embedder) embedder = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', { device: 'wasm', dtype: 'q8', progress_callback: (p) => post({ type: 'dl', p }) });
+  const out = [];
+  for (let i = 0; i < texts.length; i += 16) {
+    const t = await embedder(texts.slice(i, i + 16), { pooling: 'mean', normalize: true });
+    const d = t.dims[1];
+    for (let k = 0; k < t.dims[0]; k++) out.push(Array.from(t.data.slice(k * d, (k + 1) * d)));
+  }
+  return out;
+}
+
 self.onmessage = async (ev) => {
   const m = ev.data;
   try {
+    if (m.type === 'embed') { post({ type: 'result', id: m.id, vectors: await embed(m.texts) }); return; }
     if (m.type === 'load') {
       await load(m.model);
       post({ type: 'ready', device });
