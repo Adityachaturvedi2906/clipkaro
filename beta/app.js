@@ -307,9 +307,10 @@ async function transcribe(it) {
   let buf = new Float32Array(0), off = 0, words = [], lead = 0, started = false;
   const t0 = performance.now();
   const runBlock = async (pcm) => {
+    const len = pcm.length; // read before the buffer is transferred to the worker
     const r = await ask({ type: 'run', id: ++jobId, audio: pcm, offset: off / SR + lead, language: opts.lang }, jobId, [pcm.buffer]);
     words.push(...r.words);
-    off += pcm.length;
+    off += len;
     const doneSec = off / SR, sp = doneSec / ((performance.now() - t0) / 1000);
     setStage(it, `Writing subtitles (${workerDevice === 'webgpu' ? 'GPU' : 'CPU'}) · ${fmtT(doneSec)} of ${fmtT(it.dur)} · ${sp.toFixed(1)}× real-time`, doneSec / it.dur * 100);
   };
