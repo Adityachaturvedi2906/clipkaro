@@ -5,6 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
+import { groqModels, groqTranscribe } from './groq.js';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -14,8 +16,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 $('yr').textContent = new Date().getFullYear();
 
 /* ------------------------------------------------------------------ settings */
-const opts = { len: 30, fmt: 'fit', style: 'highlight', pos: 'low', model: 'onnx-community/whisper-base_timestamped', lang: 'auto', review: false };
+const opts = { len: '30-60', mode: 'full', count: 'auto', fmt: 'fit', style: 'highlight', pos: 'low', model: 'onnx-community/whisper-small_timestamped', lang: 'auto', review: false, aifix: true };
 try { Object.assign(opts, JSON.parse(localStorage.getItem('ck_opts') || '{}')); } catch {}
+if (typeof opts.len === 'number') opts.len = '30-60';
+if (/whisper-(tiny|base)_/.test(opts.model) && !localStorage.getItem('ck_v3')) opts.model = 'onnx-community/whisper-small_timestamped';
+try { localStorage.setItem('ck_v3', '1'); } catch {}
+let gkey = ''; try { gkey = localStorage.getItem('ck_groq') || ''; } catch {}
 const saveOpts = () => { try { localStorage.setItem('ck_opts', JSON.stringify(opts)); } catch {} };
 document.querySelectorAll('.seg').forEach((g) => {
   const k = g.dataset.k;
@@ -23,10 +29,32 @@ document.querySelectorAll('.seg').forEach((g) => {
   g.onclick = (e) => {
     const b = e.target.closest('button'); if (!b || busy()) return;
     g.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on');
-    opts[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; saveOpts();
+    opts[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; saveOpts(); syncUI();
   };
 });
-$('lang').value = opts.lang; $('lang').onchange = () => { opts.lang = $('lang').value; saveOpts(); };
+$('count').value = String(opts.count); $('count').onchange = () => { opts.count = $('count').value; saveOpts(); };
+$('aifix').checked = !!opts.aifix; $('aifix').onchange = () => { opts.aifix = $('aifix').checked; saveOpts(); };
+$('gkey').value = gkey;
+function syncUI() {
+  $('countWrap').classList.toggle('hidden', opts.mode !== 'best');
+  $('offlineModel').classList.toggle('hidden', !!gkey);
+  $('aiOn').classList.toggle('hidden', !gkey);
+  $('hinglishNote').classList.toggle('hidden', !(opts.lang === 'hinglish' && !gkey));
+}
+async function checkKey() {
+  const k = $('gkey').value.trim();
+  if (!k) { gkey = ''; try { localStorage.removeItem('ck_groq'); } catch {} $('gstat').textContent = 'No key: subtitles and cuts are done on your device.'; syncUI(); return; }
+  $('gstat').textContent = 'Checking key…';
+  try { await groqModels(k); gkey = k; try { localStorage.setItem('ck_groq', k); } catch {} $('gstat').innerHTML = '<span class="ok">✓ Key works.</span> Using Whisper Large-v3 + AI clip planning.'; }
+  catch (e) { gkey = ''; $('gstat').textContent = '✕ ' + e.message; }
+  syncUI();
+}
+$('gsave').onclick = checkKey;
+$('gkey').onkeydown = (e) => { if (e.key === 'Enter') checkKey(); };
+$('gclear').onclick = () => { $('gkey').value = ''; checkKey(); };
+if (gkey) $('gstat').innerHTML = '<span class="ok">✓ Key saved in this browser.</span> Using Whisper Large-v3 + AI clip planning.';
+syncUI();
+$('lang').value = opts.lang; $('lang').onchange = () => { opts.lang = $('lang').value; saveOpts(); syncUI(); };
 $('review').checked = !!opts.review; $('review').onchange = () => { opts.review = $('review').checked; saveOpts(); };
 
 /* ------------------------------------------------------------------ capability check */
@@ -154,15 +182,16 @@ async function asrLoop() {
     it.status = 'transcribing'; renderQueue();
     try {
       it.words = [];
-      if (opts.style !== 'none' && it.hasAudio) {
-        it.words = await transcribe(it);
-      }
-      if (stopReq) { it.status = 'queued'; setStage(it, 'Stopped', 0); break; }
-      it.captions = buildCaptions(it.words);
-      it.clips = splitClips(it);
       it.snap = { ...opts };
+      if (it.hasAudio) it.words = await transcribe(it); // words are needed for smart cuts even without captions
+      if (stopReq) { it.status = 'queued'; setStage(it, 'Stopped', 0); break; }
+      if (gkey && it.words.length && (opts.aifix || opts.lang === 'hinglish') && opts.style !== 'none') {
+        it.words = await fixWords(gkey, it.words, opts.lang, (m) => setStage(it, m));
+      }
+      it.captions = buildCaptions(it.words);
+      it.clips = await planClips(it);
       it.status = opts.review && opts.style !== 'none' ? 'review' : 'transcribed';
-      setStage(it, it.status === 'review' ? `Subtitles ready (${it.words.length} words, ${it.clips.length} clips). Check them below, then export.` : 'Waiting to export…', 0);
+      setStage(it, it.status === 'review' ? `Subtitles ready (${it.words.length} words, ${it.clips.length} clips${it.planNote ? ', ' + it.planNote : ''}). Check them below, then export.` : `${it.clips.length} clips planned${it.planNote ? ' (' + it.planNote + ')' : ''} · waiting to export…`, 0);
       renderQueue(); kickRender();
     } catch (e) {
       console.error(e); it.status = 'error'; setStage(it, 'Subtitles failed: ' + (e.message || e), 0); renderQueue();
@@ -199,7 +228,8 @@ async function renderItem(it, list) {
       if (!blob) break;
       if (c.url) URL.revokeObjectURL(c.url);
       c.blob = blob; c.url = URL.createObjectURL(blob); c.dirty = false;
-      c.name = `${it.base}_part${String(i + 1).padStart(2, '0')}.mp4`;
+      const slug = (c.title || '').replace(/[^\w\u0900-\u097F]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+      c.name = `${it.base}_part${String(i + 1).padStart(2, '0')}${slug ? '_' + slug : ''}.mp4`;
       await saveClip(it, c);
       doneSec += c.e - c.s;
       const card = $(`clip${it.id}_${i}`); if (card) updateClipCard(it, i);
@@ -287,8 +317,13 @@ async function ensureModel(it) {
     }
   };
   setStage(it, 'Loading subtitle AI…', 0);
-  await ask({ type: 'load', model: opts.model }, 'load');
-  workerModel = opts.model;
+  try { await ask({ type: 'load', model: opts.model }, 'load'); workerModel = opts.model; }
+  catch (e) {
+    const fb = 'onnx-community/whisper-small_timestamped';
+    if (opts.model === fb) throw e;
+    console.warn('model failed, falling back', e);
+    await ask({ type: 'load', model: fb }, 'load'); workerModel = fb; opts.model = fb; saveOpts();
+  }
 }
 
 // Find a quiet moment near the end of a block so we never cut a word in half.
@@ -302,13 +337,17 @@ function quietCut(pcm, from, to) {
 }
 
 async function transcribe(it) {
+  if (gkey) {
+    try { return await transcribeGroq(it); }
+    catch (e) { if (/invalid/i.test(e.message)) throw e; console.warn(e); setStage(it, 'Cloud subtitles failed (' + e.message + '), using on-device AI…', 0); await sleep(1500); }
+  }
   await ensureModel(it);
   const SR = 16000, TARGET = SR * 120, LOOK = SR * 8;
   let buf = new Float32Array(0), off = 0, words = [], lead = 0, started = false;
   const t0 = performance.now();
   const runBlock = async (pcm) => {
     const len = pcm.length; // read before the buffer is transferred to the worker
-    const r = await ask({ type: 'run', id: ++jobId, audio: pcm, offset: off / SR + lead, language: opts.lang }, jobId, [pcm.buffer]);
+    const r = await ask({ type: 'run', id: ++jobId, audio: pcm, offset: off / SR + lead, language: opts.lang === 'hinglish' ? 'hi' : opts.lang }, jobId, [pcm.buffer]);
     words.push(...r.words);
     off += len;
     const doneSec = off / SR, sp = doneSec / ((performance.now() - t0) / 1000);
@@ -327,6 +366,69 @@ async function transcribe(it) {
   }
   if (buf.length > SR * 0.3 && !stopReq) await runBlock(buf.slice());
   return cleanWords(words);
+}
+
+// Cloud: Whisper Large-v3 on Groq, ~7-minute pieces cut at quiet moments, two requests in flight.
+async function transcribeGroq(it) {
+  const SR = 16000, TARGET = SR * 420, LOOK = SR * 10;
+  let buf = new Float32Array(0), off = 0, lead = 0, started = false, done = 0;
+  const jobs = [], results = [];
+  const t0 = performance.now();
+  const status = () => setStage(it, `Writing subtitles (Whisper Large-v3, cloud) · ${fmtT(done)} of ${fmtT(it.dur)} · ${(done / Math.max(0.5, (performance.now() - t0) / 1000)).toFixed(1)}× real-time`, done / it.dur * 100);
+  const send = (pcm) => {
+    const k = jobs.length, offset = off / SR + lead, len = pcm.length / SR; off += pcm.length;
+    const p = groqTranscribe(gkey, pcm, offset, opts.lang, (s) => setStage(it, `Groq free-tier limit reached, continuing in ${s}s…`))
+      .then((w) => { results[k] = w; done += len; status(); });
+    jobs.push(p); return p;
+  };
+  const inflight = async () => { const pend = jobs.slice(-2); if (jobs.length >= 2) await pend[0]; };
+  setStage(it, 'Writing subtitles (Whisper Large-v3, cloud)…', 0);
+  for await (const chunk of audio16k(it)) {
+    if (!started) { lead = chunk.lead || 0; started = true; }
+    const nb = new Float32Array(buf.length + chunk.pcm.length); nb.set(buf); nb.set(chunk.pcm, buf.length); buf = nb;
+    while (buf.length >= TARGET + LOOK) {
+      const cut = quietCut(buf, TARGET - LOOK, TARGET + LOOK);
+      await inflight();
+      send(buf.slice(0, cut)); buf = buf.slice(cut);
+      if (stopReq) return [];
+    }
+  }
+  if (buf.length > SR * 0.3) send(buf.slice());
+  await Promise.all(jobs);
+  return cleanWords(results.flat());
+}
+
+/* ------------------------------------------------------------------ smart clip planning */
+async function embedSentences(it, S) {
+  try {
+    const files = {};
+    onDl = (p) => { if (p.status === 'progress' && p.total) { files[p.file] = [p.loaded, p.total]; const L = Object.values(files).reduce((a, b) => a + b[0], 0), T = Object.values(files).reduce((a, b) => a + b[1], 0); setStage(it, `Downloading topic AI (one time only) · ${(L / 1e6).toFixed(0)} / ${(T / 1e6).toFixed(0)} MB`, L / T * 100); } };
+    setStage(it, 'Finding where topics change…', 0);
+    const r = await ask({ type: 'embed', id: ++jobId, texts: S.map((x) => x.text) }, jobId);
+    return r.vectors;
+  } catch (e) { console.warn('embeddings unavailable', e); return null; }
+}
+async function planClips(it) {
+  const o = it.snap, [min, max] = o.len.split('-').map(Number), D = it.dur;
+  const count = o.count === 'auto' ? Math.max(3, Math.round(D / 150)) : +o.count;
+  const S = sentences(it.words);
+  it.planNote = '';
+  if (S.length < 2) { // no speech: fixed-length pieces
+    const n = Math.max(1, Math.round(D / ((min + max) / 2))); return Array.from({ length: n }, (_, i) => ({ s: D * i / n, e: D * (i + 1) / n, title: '' }));
+  }
+  let plan = null, b = null;
+  if (gkey) {
+    b = boundaryScores(S, null);
+    try { plan = await planWithAI(gkey, S, { mode: o.mode, min, max, count, lang: o.lang }, (m) => setStage(it, m)); it.planNote = 'AI-planned'; }
+    catch (e) { console.warn('AI planning failed', e); it.planNote = 'AI planning failed, used on-device logic'; }
+  }
+  if (!plan || !plan.length) {
+    b = boundaryScores(S, S.length > 3 ? await embedSentences(it, S) : null);
+    plan = o.mode === 'best' ? planBest(S, b, min, max, count) : planFull(S, b, min, max);
+    if (o.mode === 'best' && !plan.length) plan = planFull(S, b, min, max);
+  }
+  plan = enforceLengths(S, b, plan, min, max, o.mode !== 'best');
+  return toClips(S, plan, D, o.mode !== 'best');
 }
 
 // Drop obvious Whisper hallucinations (same phrase repeated many times, empty tokens).
@@ -361,30 +463,6 @@ function buildCaptions(words) {
   return caps;
 }
 
-function splitClips(it) {
-  const L = opts.len, D = it.dur, W = it.words;
-  // candidate cut points: gaps between words (midpoint), scored by pause length + sentence end
-  const cand = [];
-  for (let i = 0; i < W.length - 1; i++) {
-    const gap = W[i + 1].s - W[i].e;
-    cand.push({ t: (W[i].e + W[i + 1].s) / 2, gap, sent: /[.!?।]$/.test(W[i].w) });
-  }
-  const clips = []; let st = 0;
-  while (D - st > 0.5) {
-    if (D - st <= L * 1.3) { clips.push({ s: st, e: D }); break; }
-    const target = st + L;
-    let cut = target, best = -Infinity;
-    for (const c of cand) {
-      if (c.t <= st + 0.7 * L || c.t >= st + 1.3 * L) continue;
-      const score = (c.sent ? 2 : 0) + Math.min(c.gap, 1.2) * 2 - Math.abs(c.t - target) / L * 3;
-      if (score > best) { best = score; cut = c.t; }
-    }
-    clips.push({ s: st, e: cut }); st = cut;
-  }
-  const last = clips[clips.length - 1];
-  if (clips.length > 1 && last.e - last.s < 0.4 * L) { clips.pop(); clips[clips.length - 1].e = last.e; }
-  return clips;
-}
 const capsIn = (it, c) => it.captions.filter((x) => x.end > c.s && x.start < c.e);
 
 function makeSrt(it) {
@@ -468,7 +546,7 @@ async function renderClip(it, c, onProg) {
   const input = new Input({ source: new BlobSource(it.file), formats: ALL_FORMATS });
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
   const needsProcess = !(o.fmt === 'orig' && o.style === 'none');
-  let video = { codec: 'avc', frameRate: 30, quality: QUALITY_HIGH };
+  let video = { codec: 'avc', frameRate: 30, quality: QUALITY_HIGH, hardwareAcceleration: 'prefer-hardware' };
   if (needsProcess) {
     const cv = new OffscreenCanvas(W, H), ctx = cv.getContext('2d', { alpha: false });
     const drawCap = makeCaptionDrawer(it, o);
@@ -511,7 +589,7 @@ function renderClips(it) {
   const o = it.snap || opts;
   box.innerHTML = it.clips.map((c, i) => {
     const cs = capsIn(it, c);
-    return `<div class="clip" id="clip${it.id}_${i}"><h4><span>Clip ${i + 1}</span><span class="muted">${fmtT(c.s)}–${fmtT(c.e)} · ${Math.round(c.e - c.s)}s</span></h4>
+    return `<div class="clip" id="clip${it.id}_${i}"><h4><span>Clip ${i + 1}</span><span class="muted">${fmtT(c.s)}–${fmtT(c.e)} · ${Math.round(c.e - c.s)}s</span></h4>${c.title ? `<div class="ctitle">${esc(c.title)}</div>` : ''}
       <div class="media">${c.url ? `<video src="${c.url}" controls playsinline preload="metadata"></video>` : c.thumb ? `<img class="thumb" src="${c.thumb}" alt="">` : `<canvas class="thumb" id="th${it.id}_${i}"></canvas>`}</div>
       ${o.style !== 'none' && cs.length ? `<div class="caps">${cs.map((cp) => `<div><span class="t">${fmtT(cp.start)}</span><input data-ci="${it.captions.indexOf(cp)}" value="${esc(cp.words.map((w) => w.w).join(' '))}"></div>`).join('')}</div>` : `<div class="small muted">${o.style === 'none' ? 'Captions off' : 'No speech in this part'}</div>`}
       <div class="status cst">${c.url ? `<span class="ok">✓ Ready</span> · ${(c.blob.size / 1e6).toFixed(1)} MB · <a href="${c.url}" download="${c.name}">Download</a>${c.dirty ? ' · <b class="warnTxt">edited — re-export</b>' : ''}` : (it.status === 'rendering' ? 'Waiting…' : '')}</div></div>`;
