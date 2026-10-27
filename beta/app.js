@@ -5,8 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js?v=3';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js?v=3';
+import { groqModels, groqTranscribe } from './groq.js?v=4';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -16,11 +16,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 $('yr').textContent = new Date().getFullYear();
 
 /* ------------------------------------------------------------------ settings */
-const opts = { len: '30-60', mode: 'full', count: 'auto', fmt: 'fit', style: 'highlight', pos: 'low', model: 'onnx-community/whisper-small_timestamped', lang: 'auto', review: false, aifix: true };
+const opts = { len: '30-60', mode: 'full', count: 'auto', fmt: 'fit', style: 'highlight', pos: 'low', model: 'onnx-community/whisper-base_timestamped', lang: 'auto', review: false, aifix: true };
 try { Object.assign(opts, JSON.parse(localStorage.getItem('ck_opts') || '{}')); } catch {}
 if (typeof opts.len === 'number') opts.len = '30-60';
-if (/whisper-(tiny|base)_/.test(opts.model) && !localStorage.getItem('ck_v3')) opts.model = 'onnx-community/whisper-small_timestamped';
-try { localStorage.setItem('ck_v3', '1'); } catch {}
+if (/whisper-tiny_/.test(opts.model)) opts.model = 'onnx-community/whisper-base_timestamped';
 let gkey = ''; try { gkey = localStorage.getItem('ck_groq') || ''; } catch {}
 const saveOpts = () => { try { localStorage.setItem('ck_opts', JSON.stringify(opts)); } catch {} };
 document.querySelectorAll('.seg').forEach((g) => {
@@ -291,10 +290,11 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js?v=3', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=4', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);
+      else if (m.type === 'log') console.log('[ClipKaro worker]', m.msg);
       else if (m.type === 'ready') { workerDevice = m.device; pending.get('load')?.resolve(m); pending.delete('load'); }
       else if (m.type === 'result') { pending.get(m.id)?.resolve(m); pending.delete(m.id); }
       else if (m.type === 'error') { const k = pending.has(m.id) ? m.id : 'load'; pending.get(k)?.reject(new Error(m.message)); pending.delete(k); }
@@ -342,12 +342,15 @@ async function transcribe(it) {
     catch (e) { if (/invalid/i.test(e.message)) throw e; console.warn(e); setStage(it, 'Cloud subtitles failed (' + e.message + '), using on-device AI…', 0); await sleep(1500); }
   }
   await ensureModel(it);
-  const SR = 16000, TARGET = SR * 120, LOOK = SR * 8;
+  const SR = 16000, TARGET = SR * 26, LOOK = SR * 3; // one Whisper window per request → steady progress
   let buf = new Float32Array(0), off = 0, words = [], lead = 0, started = false;
   const t0 = performance.now();
   const runBlock = async (pcm) => {
     const len = pcm.length; // read before the buffer is transferred to the worker
-    const r = await ask({ type: 'run', id: ++jobId, audio: pcm, offset: off / SR + lead, language: opts.lang === 'hinglish' ? 'hi' : opts.lang }, jobId, [pcm.buffer]);
+    const tb = performance.now();
+    const slow = setTimeout(() => setStage(it, `On-device subtitles are slow on this computer. Tip: add the free Pro AI key above, it's ~50× faster and far more accurate.`), 90000);
+    const r = await ask({ type: 'run', id: ++jobId, audio: pcm, offset: off / SR + lead, language: opts.lang === 'hinglish' ? 'hi' : opts.lang }, jobId, [pcm.buffer]).finally(() => clearTimeout(slow));
+    console.log(`[ClipKaro] ${(len / SR).toFixed(1)}s audio transcribed in ${((performance.now() - tb) / 1000).toFixed(1)}s on ${workerDevice}`);
     words.push(...r.words);
     off += len;
     const doneSec = off / SR, sp = doneSec / ((performance.now() - t0) / 1000);

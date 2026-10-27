@@ -123,8 +123,8 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
         <div class="small muted" style="margin-top:4px">Get a free key in 1 minute at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. It's stored only in this browser. With a key, audio is sent to Groq for transcription (Whisper Large-v3) and an AI reads the transcript to decide where each clip should start and end, and gives every clip a title.</div>
         <label class="chk hidden" id="aiOn" style="margin-top:8px"><input type="checkbox" id="aifix"> AI spell-fix subtitles (fixes misheard words like “pashion” → “passion”)</label>
       </div>
-      <div class="opt" id="offlineModel"><label>On-device subtitle accuracy</label><div class="seg" data-k="model"><button data-v="onnx-community/whisper-base_timestamped">Fast</button><button data-v="onnx-community/whisper-small_timestamped">Accurate</button><button data-v="onnx-community/whisper-large-v3-turbo_timestamped">Max (strong GPU)</button></div>
-        <div class="small muted" style="margin-top:4px">Downloads once and is cached (Fast ~200 MB, Accurate ~300 MB, Max ~600 MB).</div></div>
+      <div class="opt" id="offlineModel"><label>On-device subtitle accuracy</label><div class="seg" data-k="model"><button data-v="onnx-community/whisper-base_timestamped">Fast</button><button data-v="onnx-community/whisper-small_timestamped">Accurate (slow)</button><button data-v="onnx-community/whisper-large-v3-turbo_timestamped">Max (gaming GPU)</button></div>
+        <div class="small muted" style="margin-top:4px">Downloads once and is cached. On normal laptops only “Fast” keeps up; for accurate Hindi/Hinglish subtitles use the free Pro AI key above.</div></div>
       <div class="opt"><label for="lang">Spoken language</label>
         <select id="lang"><option value="auto">Detect automatically</option><option value="en">English</option><option value="hi">Hindi (हिंदी script)</option><option value="hinglish">Hinglish (Roman letters)</option><option value="mr">Marathi</option><option value="ta">Tamil</option><option value="te">Telugu</option><option value="bn">Bengali</option><option value="gu">Gujarati</option><option value="pa">Punjabi</option><option value="ur">Urdu</option><option value="es">Spanish</option><option value="ar">Arabic</option></select>
         <div class="small muted" style="margin-top:4px">Picking the language is faster and more accurate than auto-detect.</div>
@@ -167,6 +167,6 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
 </section>
 <footer>© <span id="yr"></span> ClipKaro · Free Auto Subtitle Reel Clipper · Made in India</footer>
 </div>
-<script type="module" src="./app.js?v=3"></script>
+<script type="module" src="./app.js?v=4"></script>
 </body>
 </html>

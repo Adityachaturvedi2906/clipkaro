@@ -26,7 +26,9 @@ async function load(model) {
         progress_callback,
       });
       device = 'webgpu';
+      post({ type: 'log', msg: 'loaded ' + model + ' on webgpu, f16=' + f16 });
     } catch (e) {
+      post({ type: 'log', msg: 'webgpu load failed: ' + (e?.message || e) });
       console.warn('WebGPU load failed, falling back to CPU', e);
       asr = null;
     }
@@ -90,7 +92,7 @@ self.onmessage = async (ev) => {
     if (m.type === 'run') {
       const { audio, offset, language, id } = m;
       const blockLen = audio.length / 16000;
-      const opts = { chunk_length_s: 30, stride_length_s: 5, task: 'transcribe' };
+      const opts = blockLen > 30 ? { chunk_length_s: 30, stride_length_s: 5, task: 'transcribe' } : { task: 'transcribe' };
       if (language && language !== 'auto') opts.language = language;
       let words;
       if (wordMode) {
