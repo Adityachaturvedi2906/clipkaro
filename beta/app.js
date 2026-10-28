@@ -5,8 +5,9 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js?v=8';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=8';
+import { groqModels, groqTranscribe } from './groq.js?v=9';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=9';
+import { initTrim, dedupeWords } from './trim.js?v=9';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -22,7 +23,7 @@ if (typeof opts.len === 'number') opts.len = '30-60';
 if (/whisper-tiny_/.test(opts.model)) opts.model = 'onnx-community/whisper-base_timestamped';
 let gkey = ''; try { gkey = localStorage.getItem('ck_groq') || ''; } catch {}
 const saveOpts = () => { try { localStorage.setItem('ck_opts', JSON.stringify(opts)); } catch {} };
-document.querySelectorAll('.seg').forEach((g) => {
+document.querySelectorAll('.seg:not(.tseg)').forEach((g) => {
   const k = g.dataset.k;
   g.querySelectorAll('button').forEach((b) => b.classList.toggle('on', String(opts[k]) === b.dataset.v));
   g.onclick = (e) => {
@@ -183,6 +184,7 @@ function setStage(it, stage, pct) {
   it.stage = stage; if (pct != null) it.pct = Math.max(0, Math.min(100, pct));
   const s = $('qs' + it.id); if (s) s.textContent = stage;
   const b = document.querySelector(`#q${it.id} .bar i`); if (b) b.style.width = it.pct + '%';
+  it.onStage?.(stage, pct);
 }
 
 /* ------------------------------------------------------------------ output target */
@@ -305,6 +307,7 @@ async function redo(it) {
 }
 
 /* ------------------------------------------------------------------ audio extraction (streamed, 16 kHz mono) */
+const halted = (it) => stopReq && !it.range; // the auto queue's Stop button doesn't stop Custom Trim
 async function* audio16k(it, onProg) {
   const input = new Input({ source: new BlobSource(it.file), formats: ALL_FORMATS });
   try {
@@ -322,7 +325,7 @@ async function* audio16k(it, onProg) {
       const out = (await oc.startRendering()).getChannelData(0).slice();
       n = 0; return out;
     };
-    for await (const { buffer, timestamp } of sink.buffers()) {
+    for await (const { buffer, timestamp } of sink.buffers(it.range?.[0], it.range?.[1])) { // range = Custom Trim: decode only that part
       if (first == null) first = timestamp;
       const ch = buffer.numberOfChannels, len = buffer.length;
       const d0 = buffer.getChannelData(0), d1 = ch > 1 ? buffer.getChannelData(1) : null;
@@ -331,7 +334,7 @@ async function* audio16k(it, onProg) {
         if (n === BLOCK) { yield { pcm: await flush(), lead: first > 0 ? first : 0 }; first = 0; }
       }
       onProg?.(timestamp);
-      if (stopReq) return;
+      if (halted(it)) return;
     }
     const last = await flush(); if (last) yield { pcm: last, lead: first > 0 ? first : 0 };
   } finally { input.dispose?.(); }
@@ -341,7 +344,7 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js?v=8', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=9', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);
@@ -442,10 +445,10 @@ async function transcribe(it) {
       const cut = quietCut(buf, TARGET - LOOK, TARGET + LOOK);
       const block = buf.slice(0, cut); buf = buf.slice(cut);
       await runBlock(block);
-      if (stopReq) return words;
+      if (halted(it)) return words;
     }
   }
-  if (buf.length > SR * 0.3 && !stopReq) await runBlock(buf.slice());
+  if (buf.length > SR * 0.3 && !halted(it)) await runBlock(buf.slice());
   return cleanWords(words);
 }
 
@@ -471,7 +474,7 @@ async function transcribeGroq(it) {
       const cut = quietCut(buf, TARGET - LOOK, TARGET + LOOK);
       await inflight();
       send(buf.slice(0, cut)); buf = buf.slice(cut);
-      if (stopReq) return [];
+      if (halted(it)) return [];
     }
   }
   if (buf.length > SR * 0.3) send(buf.slice());
@@ -524,8 +527,18 @@ function cleanWords(words) {
     out.push({ ...w, w: t });
   }
   // collapse runs where the same word repeats > 4 times in a row
-  return out.filter((w, i) => !(i >= 4 && [1, 2, 3, 4].every((k) => out[i - k].w.toLowerCase() === w.w.toLowerCase())));
+  const kept = out.filter((w, i) => !(i >= 4 && [1, 2, 3, 4].every((k) => out[i - k].w.toLowerCase() === w.w.toLowerCase())));
+  return dedupeWords(kept); // no word twice where two transcription pieces overlap
 }
+
+/* ------------------------------------------------------------------ Custom Trim: transcribe one time range */
+async function transcribeRange(file, start, end, onStage) {
+  const it = { id: 'trim', file, dur: end - start, range: [start, end], onStage };
+  let words = await transcribe(it);
+  if (gkey && words.length && (opts.aifix || opts.lang === 'hinglish')) words = await fixWords(gkey, words, opts.lang, (m) => onStage(m));
+  return words.filter((w) => w.e > start && w.s < end);
+}
+initTrim({ transcribeRange });
 
 /* ------------------------------------------------------------------ captions + clip splitting */
 function buildCaptions(words) {
