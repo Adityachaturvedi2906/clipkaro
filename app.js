@@ -5,8 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js?v=7';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=7';
+import { groqModels, groqTranscribe } from './groq.js?v=8';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=8';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -341,7 +341,7 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js?v=7', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=8', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);
@@ -387,22 +387,49 @@ function quietCut(pcm, from, to) {
   return best;
 }
 
+// Find stretches (> 4s) inside a block that contain speech but got no words. Times are block-relative.
+function speechHoles(pcm, words, base) {
+  const SR = 16000, len = pcm.length / SR, holes = [];
+  const loud = (a, b) => { // share of 100ms frames louder than -42 dB
+    let on = 0, n = 0;
+    for (let t = a; t + 0.1 <= b; t += 0.1) { let e = 0; const i0 = Math.floor(t * SR), i1 = i0 + SR / 10; for (let i = i0; i < i1; i++) e += pcm[i] * pcm[i]; n++; if (10 * Math.log10(e / (SR / 10) + 1e-12) > -42) on++; }
+    return n ? on / n : 0;
+  };
+  const marks = [0, ...words.flatMap((w) => [w.s - base, w.e - base]), len];
+  for (let i = 0; i < marks.length - 1; i += 2) {
+    const a = Math.max(0, marks[i]), b = Math.min(len, marks[i + 1]);
+    if (b - a > 4 && loud(a, b) > 0.5) holes.push([a, b]);
+  }
+  return holes;
+}
+
 async function transcribe(it) {
   if (gkey) {
     try { return await transcribeGroq(it); }
     catch (e) { if (/invalid/i.test(e.message)) throw e; console.warn(e); setStage(it, 'Cloud subtitles failed (' + e.message + '), using on-device AI…', 0); await sleep(1500); }
   }
   await ensureModel(it);
-  const SR = 16000, TARGET = SR * 60, LOOK = SR * 5; // ~1 minute per request → steady progress
+  // Blocks stay under Whisper's 30s window, so the model never stitches windows itself
+  // (that stitching sometimes dropped a whole 30s of speech).
+  const SR = 16000, TARGET = SR * 26, LOOK = SR * 3;
   let buf = new Float32Array(0), off = 0, words = [], lead = 0, started = false;
   const t0 = performance.now();
   const runBlock = async (pcm) => {
     const len = pcm.length; // read before the buffer is transferred to the worker
     const tb = performance.now();
     const slow = setTimeout(() => setStage(it, `On-device subtitles are slow on this computer. Tip: add the free Pro AI key above, it's ~50× faster and far more accurate.`), 90000);
-    const r = await ask({ type: 'run', id: ++jobId, audio: pcm, offset: off / SR + lead, language: opts.lang === 'hinglish' ? 'hi' : opts.lang }, jobId, [pcm.buffer]).finally(() => clearTimeout(slow));
+    const lang = opts.lang === 'hinglish' ? 'hi' : opts.lang, base = off / SR + lead;
+    const run = (audio, offset) => { const a = audio.slice(); return ask({ type: 'run', id: ++jobId, audio: a, offset, language: lang }, jobId, [a.buffer]).then((r) => r.words); };
+    let got = await run(pcm, base).finally(() => clearTimeout(slow));
+    // Safety net: any stretch with clear speech but no words is transcribed again on its own.
+    for (const [a, b] of speechHoles(pcm, got, base)) {
+      const from = Math.max(0, Math.floor((a - 0.4) * SR)), to = Math.min(len, Math.ceil((b + 0.4) * SR));
+      const extra = (await run(pcm.subarray(from, to), base + from / SR)).filter((w) => w.s >= base + a - 0.5 && w.e <= base + b + 0.5);
+      console.log(`[ClipKaro] re-transcribed silent-caption gap ${fmtT(base + a)}–${fmtT(base + b)}: +${extra.length} words`);
+      got = got.concat(extra).sort((x, y) => x.s - y.s);
+    }
     console.log(`[ClipKaro] ${(len / SR).toFixed(1)}s audio transcribed in ${((performance.now() - tb) / 1000).toFixed(1)}s on ${workerDevice}`);
-    words.push(...r.words);
+    words.push(...got);
     off += len;
     const doneSec = off / SR, sp = doneSec / ((performance.now() - t0) / 1000);
     setStage(it, `Writing subtitles (${workerDevice === 'webgpu' ? 'GPU' : 'CPU'}) · ${fmtT(doneSec)} of ${fmtT(it.dur)} · ${sp.toFixed(1)}× real-time`, doneSec / it.dur * 100);
