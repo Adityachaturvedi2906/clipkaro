@@ -5,8 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js?v=6';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=6';
+import { groqModels, groqTranscribe } from './groq.js?v=7';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=7';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -71,6 +71,57 @@ $('drop').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') $('file')
 ['dragleave', 'drop'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
 $('drop').addEventListener('drop', (e) => addFiles([...e.dataTransfer.files]));
 $('file').onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+
+/* ------------------------------------------------------------------ add a video from a link */
+// Turn common share links into direct-download links the browser is allowed to read.
+function directUrl(raw) {
+  let u; try { u = new URL(raw.trim()); } catch { throw new Error('That does not look like a link. Copy the full https://… address.'); }
+  const h = u.hostname.replace(/^www\./, '');
+  if (/(^|\.)(youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.watch|tiktok\.com|x\.com|twitter\.com)$/.test(h))
+    throw new Error("That's a page on a video site, not a video file — browsers can't read those. Save the video first, then add the file or a Dropbox link to it.");
+  if (h === 'dropbox.com' || h === 'dl.dropbox.com') { u.hostname = 'dl.dropboxusercontent.com'; u.searchParams.delete('dl'); u.searchParams.delete('raw'); return u.href; }
+  if (/(^|\.)google\.com$/.test(h) || h === 'drive.usercontent.google.com')
+    throw new Error("Google Drive doesn't let other websites read its files. Upload the video to Dropbox instead and paste its share link.");
+  return u.href;
+}
+function nameFrom(res, url) {
+  const cd = res.headers.get('content-disposition') || '';
+  let n = (cd.match(/filename\*=UTF-8''([^;]+)/i) || [])[1]; if (n) n = decodeURIComponent(n);
+  else n = (cd.match(/filename="?([^";]+)"?/i) || [])[1] || decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+  n = (n || 'video').trim();
+  return /\.(mp4|mov|webm|mkv|m4v)$/i.test(n) ? n : n.replace(/\.[^.]*$/, '') + '.mp4';
+}
+async function addFromUrl() {
+  const msg = $('vurlMsg'), btn = $('vurlGo'), raw = $('vurl').value;
+  if (!raw.trim()) { $('vurl').focus(); return; }
+  const say = (t, bad) => { msg.textContent = t; msg.className = 'small ' + (bad ? 'warnTxt' : 'muted'); };
+  let url; try { url = directUrl(raw); } catch (e) { say(e.message, true); return; }
+  btn.disabled = true; say('Connecting…');
+  try {
+    let res;
+    try { res = await fetch(url, { mode: 'cors', credentials: 'omit' }); }
+    catch { throw new Error("That site doesn't let other websites read its files. Upload the video to Dropbox and paste its share link instead."); }
+    if (!res.ok) throw new Error(`The link answered "${res.status} ${res.statusText || 'error'}". Check that the file is shared publicly ("anyone with the link").`);
+    const type = (res.headers.get('content-type') || '').toLowerCase();
+    if (type.includes('text/html')) throw new Error('That link opens a web page, not the video file. Use a Dropbox share link or a direct .mp4 link.');
+    const total = +res.headers.get('content-length') || 0, reader = res.body.getReader(), parts = []; let got = 0, t0 = performance.now();
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      parts.push(value); got += value.length;
+      const mbs = got / 1e6 / Math.max(0.5, (performance.now() - t0) / 1000);
+      say(`Downloading video · ${(got / 1e6).toFixed(0)}${total ? ' / ' + (total / 1e6).toFixed(0) : ''} MB${total ? ` (${Math.round(got / total * 100)}%)` : ''} · ${mbs.toFixed(1)} MB/s`);
+    }
+    if (got < 1e5) throw new Error('The link returned an almost empty file. Make sure it points to the video itself.');
+    const name = nameFrom(res, res.url || url);
+    const file = new File(parts, name, { type: type.startsWith('video/') ? type : 'video/mp4' });
+    say(`Added "${name}" (${(got / 1e6).toFixed(0)} MB).`);
+    $('vurl').value = '';
+    await addFiles([file]);
+  } catch (e) { say(e.message || String(e), true); }
+  finally { btn.disabled = false; }
+}
+$('vurlGo').onclick = addFromUrl;
+$('vurl').onkeydown = (e) => { if (e.key === 'Enter') addFromUrl(); };
 
 async function addFiles(files) {
   files = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|webm|mkv|m4v)$/i.test(f.name));
@@ -290,7 +341,7 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js?v=6', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=7', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);
