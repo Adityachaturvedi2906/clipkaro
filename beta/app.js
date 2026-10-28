@@ -5,8 +5,8 @@ import {
   Input, Output, Conversion, ALL_FORMATS, BlobSource, BufferTarget, Mp4OutputFormat,
   AudioBufferSink, VideoSampleSink, QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/+esm';
-import { groqModels, groqTranscribe } from './groq.js?v=5';
-import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, toClips, fixWords } from './planner.js?v=5';
+import { groqModels, groqTranscribe } from './groq.js?v=6';
+import { sentences, boundaryScores, planFull, planBest, planWithAI, enforceLengths, snapBoundaries, toClips, fixWords } from './planner.js?v=6';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -290,7 +290,7 @@ async function* audio16k(it, onProg) {
 let worker = null, workerModel = '', workerDevice = '', jobId = 0; const pending = new Map();
 function getWorker() {
   if (!worker) {
-    worker = new Worker(new URL('./asr-worker.js?v=5', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./asr-worker.js?v=6', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'dl') onDl?.(m.p);
@@ -431,6 +431,7 @@ async function planClips(it) {
     if (o.mode === 'best' && !plan.length) plan = planFull(S, b, min, max);
   }
   plan = enforceLengths(S, b, plan, min, max, o.mode !== 'best');
+  plan = snapBoundaries(S, b, plan, min, max, o.mode !== 'best');
   return toClips(S, plan, D, o.mode !== 'best');
 }
 
@@ -466,7 +467,8 @@ function buildCaptions(words) {
   return caps;
 }
 
-const capsIn = (it, c) => it.captions.filter((x) => x.end > c.s && x.start < c.e);
+const capMid = (x) => x.words.length ? (x.words[0].s + x.words[x.words.length - 1].e) / 2 : (x.start + x.end) / 2;
+const capsIn = (it, c) => it.captions.filter((x) => { const m = capMid(x); return m >= c.s && m < c.e; });
 
 function makeSrt(it) {
   let n = 0;
@@ -491,8 +493,8 @@ function drawVideo(ctx, sample, W, H, o) {
   const k = Math.min(W / vw, H / vh); sample.draw(ctx, (W - vw * k) / 2, (H - vh * k) / 2, vw * k, vh * k);
 }
 
-function makeCaptionDrawer(it, o) {
-  const caps = it.captions; let idx = 0;
+function makeCaptionDrawer(it, o, clip) {
+  const caps = clip ? capsIn(it, clip) : it.captions; let idx = 0;
   const layoutCache = new Map();
   return (ctx, t, W, H, forced) => {
     if (o.style === 'none') return;
@@ -552,7 +554,7 @@ async function renderClip(it, c, onProg) {
   let video = { codec: 'avc', frameRate: 30, quality: QUALITY_HIGH, hardwareAcceleration: 'prefer-hardware' };
   if (needsProcess) {
     const cv = new OffscreenCanvas(W, H), ctx = cv.getContext('2d', { alpha: false });
-    const drawCap = makeCaptionDrawer(it, o);
+    const drawCap = makeCaptionDrawer(it, o, c);
     let rel = null;
     video = {
       ...video, processedWidth: W, processedHeight: H, forceTranscode: true,

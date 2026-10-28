@@ -2,12 +2,13 @@
 // With a Groq key, an LLM reads the transcript and chooses sections (or best moments) + titles.
 // Without one, sentence boundaries are scored with pauses, discourse cues and topic shifts
 // (multilingual sentence embeddings), and dynamic programming picks the best cuts.
-import { groqJSON } from './groq.js?v=5';
+import { groqJSON } from './groq.js?v=6';
 
 const END = /[.?!।॥]["'”’)]?$/;
 const QEND = /\?["'”’)]?$/;
 const OPENERS = /^(now|next|so now|okay|ok|alright|first(ly)?|second(ly)?|third(ly)?|finally|lastly|another|the (first|second|third|next|last|biggest|real)|here'?s|let'?s|number \d|step \d|tip \d|अब|तो अब|पहला|पहली|दूसरा|दूसरी|तीसरा|तीसरी|आखिरी|चलिए|देखिए|ab |toh ab|pehla|doosra|dusra|teesra|chaliye)/i;
 const CONTINUES = /^(and|but|because|which|that|or|so that|then|also|as well|और|लेकिन|क्योंकि|जो|कि|या|तो|फिर|भी|aur|lekin|kyunki|jo|ki|ya|phir)\b/i;
+const LOWER = /^["'“‘(]?[a-z]/;   // Latin word starting lowercase = sentence continues
 const DANGLING = /\b(and|but|because|the|a|an|of|to|for|with|my|your|is|are|was|और|लेकिन|क्योंकि|का|की|के|को|से|में|aur|lekin|ka|ki|ke|ko|se|mein)[,]?$/i;
 
 // Group words into sentences (also split at long pauses and overly long runs).
@@ -18,7 +19,8 @@ export function sentences(words) {
     cur.push({ ...w, i });
     const nx = words[i + 1];
     const gap = nx ? nx.s - w.e : 9;
-    if (END.test(w.w) || gap > 0.9 || (cur.length > 45 && gap > 0.25) || cur.length > 70) push();
+    const cont = nx && LOWER.test(nx.w) && !END.test(w.w);
+    if (END.test(w.w) || (gap > 0.9 && (!cont || gap > 2.2)) || (cur.length > 45 && gap > 0.25) || cur.length > 70) push();
   });
   push();
   return out;
@@ -39,6 +41,7 @@ export function boundaryScores(S, emb) {
     if (OPENERS.test(n.text.trim())) sc += 0.9;
     if (OPENERS.test(a.text.trim()) && a.text.split(' ').length <= 8) sc -= 1.5; // "Next, let's talk about money." introduces what follows
     if (CONTINUES.test(n.text.trim())) sc -= 0.9;
+    if (LOWER.test(n.text.trim()) && !END.test(a.text)) sc -= 2.2;
     if (emb) {
       const L = avg(emb.slice(Math.max(0, j - 2), j + 1)), R = avg(emb.slice(j + 1, Math.min(S.length, j + 4)));
       sc += Math.max(0, Math.min(1, (0.85 - cos(L, R)) / 0.45)) * 1.6;   // topic shift
@@ -105,6 +108,36 @@ export function toClips(S, plan, dur, full) {
     if (!full) { s = Math.max(0, Math.min(s, S[p.a].s - 0.05)); e = Math.min(dur, Math.max(e, S[p.z].e + 0.1)); }
     return { s, e, title: p.title || '', a: p.a, z: p.z };
   });
+}
+
+const isCleanCut = (S, b, j) => j < 0 || j >= S.length - 1 || (END.test(S[j].text) && !LOWER.test(S[j + 1].text.trim()) && b[j] > -0.5);
+export function snapBoundaries(S, b, plan, min, max, full) {
+  if (!plan.length || !b) return plan;
+  const P = plan.map((p) => ({ ...p })), dur = (a, z) => S[z].e - S[a].s, R = 4;
+  const better = (j0, ok) => {
+    let best = j0, bs = isCleanCut(S, b, j0) ? b[j0] + 3 : -Infinity;
+    for (let d = 1; d <= R; d++) for (const j of [j0 - d, j0 + d]) {
+      if (j < 0 || j >= S.length - 1 || !ok(j)) continue;
+      const sc = (isCleanCut(S, b, j) ? 3 : 0) + b[j] - d * 0.25;
+      if (sc > bs) { bs = sc; best = j; }
+    }
+    return best;
+  };
+  if (full) {
+    for (let k = 1; k < P.length; k++) {
+      const L = P[k - 1], C = P[k], j0 = C.a - 1;
+      if (isCleanCut(S, b, j0)) continue;
+      const j = better(j0, (j) => j >= L.a && j < C.z && dur(L.a, j) >= min * 0.6 && dur(L.a, j) <= max * 1.3 && dur(j + 1, C.z) >= min * 0.6 && dur(j + 1, C.z) <= max * 1.3);
+      L.z = j; C.a = j + 1;
+    }
+    return P;
+  }
+  const out = P.map((p) => {
+    if (!isCleanCut(S, b, p.a - 1)) { const j = better(p.a - 1, (j) => j < p.z && dur(j + 1, p.z) >= min * 0.7 && dur(j + 1, p.z) <= max * 1.25); p.a = j + 1; }
+    if (!isCleanCut(S, b, p.z)) p.z = better(p.z, (j) => j >= p.a && dur(p.a, j) >= min * 0.7 && dur(p.a, j) <= max * 1.25);
+    return p;
+  });
+  return out.filter((p, i) => !out.slice(0, i).some((q) => !(p.z < q.a || p.a > q.z)));
 }
 
 /* ------------------------------------------------------------------ LLM planning (Groq) */
