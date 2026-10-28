@@ -113,7 +113,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
   <div class="pills"><span>⚡ GPU-accelerated</span><span>📚 Batch queue</span><span>🎯 Word-synced captions</span><span>🧠 Cuts at complete thoughts</span><span>🔒 Never uploaded</span></div>
 </section>
 
-<div class="tabs"><button data-mode="auto" class="on">📚 Auto clips</button><button data-mode="trim">✂️ Custom Trim</button></div>
+<div class="tabs"><button data-tab="auto" class="on">📚 Auto clips</button><button data-tab="trim">✂️ Custom Trim</button></div>
 
 <div class="warn hidden" id="noSupport">Your browser can't do fast video encoding. Please open ClipKaro in <b>Chrome or Edge</b> (version 94 or newer) on a laptop or desktop.</div>
 
@@ -160,7 +160,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
   </div>
   <div id="tWork" class="hidden">
     <div class="tgrid">
-      <div><video id="tVideo" controls playsinline preload="metadata"></video>
+      <div><video id="tVideo" controls playsinline preload="auto"></video>
         <div class="row" style="justify-content:space-between;margin-top:6px"><span class="small muted" id="tMeta"></span><span class="small">Now: <b id="tNow">0:00</b></span></div>
         <button class="btn ghost sm" id="tChange" style="margin-top:6px">Choose another video</button></div>
       <div><canvas id="tPrev" width="270" height="480"></canvas><div class="small muted center" style="margin-top:4px">Live 9:16 preview</div></div>

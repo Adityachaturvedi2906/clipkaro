@@ -35,6 +35,9 @@ export function dedupeWords(words) {
   const out = [];
   for (const w of [...words].sort((a, b) => a.s - b.s)) {
     if (!w.w.trim()) continue;
+    const q = out[out.length - 1];
+    // Whisper sometimes splits numbers: "2" + ",400" → "2,400"; "$1" + ".5" → "$1.5"
+    if (q && /\d$/.test(q.w) && /^[,.]\d/.test(w.w.trim()) && w.s - q.e < 0.6) { q.w += w.w.trim(); q.e = Math.max(q.e, w.e); continue; }
     const n = norm(w.w);
     const recent = out.slice(-8);
     if (recent.some((k) => norm(k.w) === n && (w.s < k.e - 0.05 || Math.abs(w.s - k.s) < 0.25))) continue;
@@ -57,7 +60,8 @@ export function buildTrimCaptions(words, s, e) {
     const nx = ws[i + 1];
     cur.push({ w: w.w, s: w.s, e: w.e });
     const chars = cur.reduce((a, x) => a + x.w.length, 0);
-    if (cur.length >= 6 || chars >= 28 || /[.?!]$/.test(w.w) || (/[,;:]$/.test(w.w) && cur.length >= 3) || !nx || nx.s - w.e > 0.6) push();
+    const keepNext = nx && (/\d$/.test(w.w) || MULT.test(w.w)) && MULT.test(nx.w) && nx.s - w.e < 0.6 && cur.length < 9; // never split "$1 | million"
+    if (!keepNext && (cur.length >= 6 || chars >= 28 || /[.?!]$/.test(w.w) || (/[,;:]$/.test(w.w) && cur.length >= 3) || !nx || nx.s - w.e > 0.6)) push();
   });
   for (let i = 0; i < caps.length; i++) {
     const c = caps[i], n = caps[i + 1];
@@ -161,11 +165,11 @@ export function initTrim(d) {
   // mode tabs
   const setMode = (m) => {
     document.body.dataset.mode = m;
-    document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+    document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === m));
     try { localStorage.setItem('ck_mode', m); } catch {}
     if (m === 'trim') drawPreview();
   };
-  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => setMode(b.dataset.mode));
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => setMode(b.dataset.tab));
   let m0 = 'auto'; try { m0 = localStorage.getItem('ck_mode') || 'auto'; } catch {}
   if (location.hash === '#trim') m0 = 'trim';
   setMode(m0);
@@ -200,7 +204,7 @@ export function initTrim(d) {
   let raf = 0;
   const loop = () => { drawPreview(); if (!v.paused) raf = requestAnimationFrame(loop); };
   v.addEventListener('play', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(loop); });
-  ['seeked', 'loadeddata', 'pause', 'timeupdate'].forEach((ev) => v.addEventListener(ev, () => { if (v.paused) drawPreview(); }));
+  ['seeked', 'loadeddata', 'canplay', 'pause', 'timeupdate'].forEach((ev) => v.addEventListener(ev, () => { if (v.paused) drawPreview(); }));
   v.addEventListener('timeupdate', () => { $('tNow').textContent = fmtTime(v.currentTime, true); });
 }
 
